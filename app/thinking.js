@@ -741,25 +741,78 @@ async function sendMessage() {
       // Visitors get one honest message aimed at the only person who can
       // actually fix it: the owner.
       if (window.IS_VISITOR) {
+        // Each state names the one person who can fix it and what they must
+        // do. The catch-all stays vague on purpose — a visitor cannot act on
+        // a stack trace — but anything the provider explained gets its own
+        // branch, because "try again later" is wrong advice for a dead key
+        // and sends the owner waiting on a reset that is never coming.
+        const _vh = parseHttpError(msg);
         const unconfigured = msg.includes('model_not_configured') || msg.includes('503');
-        errorData = unconfigured
-          ? {
-              title: 'This AI has no model connected yet',
-              desc: 'Everything about this AI — its name, personality, and knowledge — is set up and ready. It just hasn\'t been given a model to think with, so it can\'t reply yet. Only its owner can finish that step.',
-              steps: [
-                { text: 'If this is your AI: on Vercel, open Settings → Environment Variables' },
-                { text: 'Add MODEL_API_KEY with your own key from console.groq.com (free, no card), then redeploy' },
-                { text: 'If it isn\'t yours: let whoever shared the link know — it\'s a two-minute fix' },
-              ],
-            }
-          : {
-              title: 'The AI couldn\'t be reached',
-              desc: 'The request to this AI\'s model didn\'t come back. It may be briefly overloaded, or its owner\'s free quota may be used up for now.',
-              steps: [
-                { text: 'Wait a few seconds and send your message again' },
-                { text: 'If it keeps failing, let whoever shared this link know' },
-              ],
-            };
+        // A retired model name answers 404 with the key working fine, so
+        // "overloaded, try again" would send the owner hunting a new key for
+        // days. Providers rename and shut down models on a schedule; say so.
+        const retiredModel = _vh.status === 404 || msg.includes('model_not_found');
+        // Out of allowance. On a free tier this resets on a clock, so it is a
+        // "wait" for the visitor and a "check your usage" for the owner.
+        const outOfQuota = _vh.status === 429;
+        // The key itself was refused: revoked, deleted, or regenerated on the
+        // provider dashboard without Vercel being told. Waiting cannot fix it.
+        const keyRejected = _vh.status === 401 || _vh.status === 403;
+        if (unconfigured) {
+          errorData = {
+            title: 'This AI has no model connected yet',
+            desc: 'Everything about this AI — its name, personality, and knowledge — is set up and ready. It just hasn\'t been given a model to think with, so it can\'t reply yet. Only its owner can finish that step.',
+            steps: [
+              { text: 'If this is your AI: on Vercel, open Settings → Environment Variables' },
+              { text: 'Add MODEL_API_KEY with your own key from console.groq.com (free, no card), then redeploy' },
+              { text: 'If it isn\'t yours: let whoever shared the link know — it\'s a two-minute fix' },
+            ],
+          };
+        } else if (retiredModel) {
+          errorData = {
+            title: 'This AI is pointed at a model that no longer exists',
+            desc: 'The key works and the provider answered — it just doesn\'t serve the model this site asks for any more. Providers retire model names on a schedule, and a site pinned to an old one stops replying the day it shuts down.',
+            steps: [
+              { text: 'If this is your AI: check your provider\'s model list for a current name (on Groq, console.groq.com/docs/models)' },
+              { text: 'On Vercel, set MODEL_NAME to that name under Settings → Environment Variables, then redeploy' },
+              ...(_vh.detail ? [{ text: 'The provider said:', code: _vh.detail }] : []),
+              { text: 'If it isn\'t yours: let whoever shared the link know — it\'s a one-variable fix' },
+            ],
+          };
+        } else if (outOfQuota) {
+          errorData = {
+            title: 'This AI has used up its allowance for now',
+            desc: 'Nothing is broken — the model provider is holding requests back because this AI has asked for too many, too fast, or too many today. Free allowances refill on a clock, so this usually fixes itself.',
+            steps: [
+              { text: 'Wait a minute and send your message again — per-minute limits refill quickly' },
+              { text: 'If this is your AI: check your usage on console.groq.com — daily limits reset every 24 hours' },
+              { text: 'To lift the ceiling, upgrade the account or put a fresh key in MODEL_API_KEY on Vercel and redeploy' },
+              ...(_vh.detail ? [{ text: 'The provider said:', code: _vh.detail }] : []),
+              { text: 'If it isn\'t yours: let whoever shared this link know their AI has hit its limit' },
+            ],
+          };
+        } else if (keyRejected) {
+          errorData = {
+            title: 'This AI\'s key is no longer accepted',
+            desc: 'The model provider refused the key this site is using. Keys don\'t run out on their own, so this means it was deleted, regenerated, or revoked on the provider\'s side — waiting won\'t bring it back. Only the owner can replace it.',
+            steps: [
+              { text: 'If this is your AI: create a new key at console.groq.com (free, no card)' },
+              { text: 'On Vercel, replace MODEL_API_KEY under Settings → Environment Variables, then redeploy' },
+              ...(_vh.detail ? [{ text: 'The provider said:', code: _vh.detail }] : []),
+              { text: 'If it isn\'t yours: let whoever shared this link know their key needs renewing — it\'s a two-minute fix' },
+            ],
+          };
+        } else {
+          errorData = {
+            title: 'The AI couldn\'t be reached',
+            desc: 'The request to this AI\'s model didn\'t come back. It may be briefly overloaded, or something on the way there is having a bad moment.',
+            steps: [
+              { text: 'Wait a few seconds and send your message again' },
+              { text: 'If it keeps failing, let whoever shared this link know' },
+              ...(_vh.detail ? [{ text: 'The provider said:', code: _vh.detail }] : []),
+            ],
+          };
+        }
         removeTypingIndicator();
         renderErrorBubble(errorData);
         setConnected(false);

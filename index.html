@@ -247,10 +247,10 @@
 
   <div class="input-area" id="input-area">
     <!-- Model picker (floats above input-box) -->
-    <div class="model-dropdown" id="model-dropdown" data-owner-only>
+    <div class="model-dropdown" id="model-dropdown" data-owner-only data-visitor-ok>
       <div class="model-dd-search-row">
         <input type="text" class="model-dd-search" id="model-dd-search" placeholder="Search models…" oninput="filterModels(this.value)" autocomplete="off">
-        <button class="model-dd-add" title="Add a model" onclick="openAddModels()">+</button>
+        <button class="model-dd-add" data-owner-only title="Add a model" onclick="openAddModels()">+</button>
       </div>
       <div class="model-dd-recent-label">Recent</div>
       <div class="model-dd-list" id="model-dd-list"></div>
@@ -301,7 +301,7 @@
           onkeydown="handleKey(event)"
           oninput="autoResize()"
         ></textarea>
-        <button class="model-select-btn" id="model-select-btn" data-owner-only onclick="toggleModelDropdown()" title="Select model">
+        <button class="model-select-btn" id="model-select-btn" data-owner-only data-visitor-ok onclick="toggleModelDropdown()" title="Select model">
           <span id="model-select-icon"><svg class="model-dd-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M9 15h6"/></svg></span>
           <span id="model-select-label">Select model</span>
           <svg class="model-select-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg>

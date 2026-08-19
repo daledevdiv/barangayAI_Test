@@ -142,12 +142,13 @@ Everything you customize is saved **in your browser**, not in the code — that'
 ```
 MODEL_API_KEY    required — your own free key from console.groq.com (no card)
 MODEL_API_BASE   optional — defaults to https://api.groq.com/openai/v1
-MODEL_NAME       optional — defaults to llama-3.1-8b-instant
+MODEL_NAME       optional — which model(s) to offer, comma-separated.
+                 Unset = all of them, and visitors pick.
 ```
 
 The key is **yours** — you create it on your own provider account, and every message a visitor sends draws on your allowance, not anyone else's. It stays in Vercel and is only ever read server-side by [`api/proxy.js`](api/proxy.js). **Never commit one** — public repos get scraped for keys within hours. `my-ai.json` is written without any key by design.
 
-**What visitors get:** your AI's name, personality, reply language, brand color, greeting, and uploaded sources — plus their own private chat history in their own browser. **What they can't do:** open Settings, change the personality or language, add or remove sources, or swap models. Only you can, by editing locally and republishing.
+**What visitors get:** your AI's name, personality, reply language, brand color, greeting, and uploaded sources — plus their own private chat history in their own browser. **What they can't do:** open Settings, change the personality or language, add or remove sources, or change what the AI *is*. They **can** switch models, from the picker under the composer — by default the picker offers every chat model your key can reach. Set `MODEL_NAME` to restrict that to one model (or a comma-separated few) and the picker offers only those. Either way the deployed `/api` asks your provider for the live list at request time rather than trusting a name baked into the code, so a model your provider retires drops out of the picker instead of taking the site down.
 
 To see exactly what they'll see, open your local copy at `?visitor=1` once `my-ai.json` is in the folder.
 

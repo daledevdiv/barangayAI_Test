@@ -86,7 +86,12 @@ function hydratePublishedSettings(cfg) {
 // every new chat) is covered by the stylesheet rule as well.
 function lockVisitorUI() {
   document.body.classList.add('visitor-mode');
-  document.querySelectorAll('[data-owner-only]').forEach(el => el.remove());
+  // data-visitor-ok is the opt-back-in: the model picker is owner-only in
+  // spirit but a published site now serves a real list of models through
+  // /api, and a list nobody can open is not a list. The owner-only controls
+  // INSIDE it (the "+" that opens Add Models) keep the plain attribute and
+  // are still removed by this same sweep.
+  document.querySelectorAll('[data-owner-only]:not([data-visitor-ok])').forEach(el => el.remove());
 
   // Conversation titles stay renameable in spirit — but an editable H1 on
   // someone else's AI reads as "you can change this thing", so it goes.
