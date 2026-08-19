@@ -615,8 +615,11 @@ function saveModels() {
   window.BarangayDB.dbSaveModels(userModels);
 }
 
-function addModelEntry({ model, base, key, kind, source = 'user' }) {
-  const endpoint = (() => { try { return new URL(base).host; } catch { return base; } })();
+function addModelEntry({ model, base, key, kind, source = 'user', endpoint: label }) {
+  // A published entry's base is the relative '/api', which has no host to pull
+  // a name out of — the caller passes a label instead, so the picker reads as
+  // a place the model comes from rather than as a path.
+  const endpoint = label || (() => { try { return new URL(base).host; } catch { return base; } })();
   // Avoid duplicates (same model + endpoint)
   const existing = MODEL_LIST.find(m => m.model === model && m.base === base);
   if (existing) return existing;
@@ -633,25 +636,34 @@ function addModelEntry({ model, base, key, kind, source = 'user' }) {
 async function initModelRegistry() {
   loadModelPrefs();   // disabled models + removed endpoints
 
-  // Published site: there is exactly one model — whatever the owner's
-  // Vercel MODEL_NAME env var points at, served through the same-origin
-  // /api proxy so the key never reaches the browser. No local discovery
-  // (127.0.0.1 is the VISITOR's machine, which has no Ollama), no saved
-  // endpoints, no picker. Ask the proxy what it's serving rather than
-  // trusting a model name baked into my-ai.json, so swapping the env var
-  // is all it takes to change models.
+  // Published site: every model runs through the same-origin /api proxy, so
+  // the key never reaches the browser. No local discovery (127.0.0.1 is the
+  // VISITOR's machine, which has no Ollama) and no saved endpoints — but the
+  // picker itself stays, because the proxy answers /models with the real list
+  // the owner's key can reach. Asking beats trusting a name baked into
+  // my-ai.json: the day a provider retires a model, discovery routes around
+  // it instead of the whole site going quiet.
   if (window.IS_VISITOR) {
     // /api is the owner's proxy in front of a cloud provider, never Ollama.
     // Recorded outright so no page load spends a request asking.
     OLLAMA_ENDPOINTS.set('/api', false);
     const ids = await discoverModels('/api', '');
-    const name = ids[0] || (window.PUBLISHED_CONFIG?.model?.label) || 'cloud model';
-    const entry = addModelEntry({ model: name, base: '/api', key: '', kind: 'api', source: 'published' });
+    // The proxy puts the owner's preferred model first, so the head of the
+    // list is the default and the tail is what else that key can reach. An
+    // empty list means /models itself failed — carry on with one placeholder
+    // name so the composer has something to show while chat reports why.
+    const names = ids.length
+      ? ids
+      : [(window.PUBLISHED_CONFIG?.model?.label) || 'cloud model'];
+    const entries = names.map(name => addModelEntry({
+      model: name, base: '/api', key: '', kind: 'api',
+      source: 'published', endpoint: 'hosted',
+    }));
     // selectModel() re-probes on its own now, which is what rescues the visitor
     // view: the module-level check ran against the default local endpoint and
     // failed (127.0.0.1 is the visitor's own machine), so without a re-probe
     // against /api a working site sits on "Offline" until the 15s tick.
-    selectModel(entry.id, { silent: true });
+    selectModel(entries[0].id, { silent: true });
     refreshEndpointStatuses();
     return;
   }

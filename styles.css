@@ -4828,7 +4828,7 @@
    app/publish.js) — this rule is the safety net for anything rendered
    after that sweep, e.g. the welcome screen, which re-renders on every
    new conversation. */
-body.visitor-mode [data-owner-only] { display: none !important; }
+body.visitor-mode [data-owner-only]:not([data-visitor-ok]) { display: none !important; }
 
 /* Credit + the honesty line. The camp teaches "free, private, no cloud";
    this public copy answers through a hosted model, and saying so is the
